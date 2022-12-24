@@ -1,0 +1,35 @@
+{
+  "name": "twitch-api-typescript",
+  "version": "0.5.3",
+  "description": "Fully typed TwitchAPI wrapper that makes working with TwitchAPI as easy as possible",
+  "main": "build/index.js",
+  "homepage": "https://github.com/francois-egner/TwitchTS",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "dev": "npx nodemon src/index.ts",
+    "prepublish": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://https://github.com/francois-egner/TwitchTS.git"
+  },
+  "keywords": [
+    "twitch",
+    "api",
+    "typescript",
+    "node"
+  ],
+  "author": "François Egner",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "@types/node": "^18.11.15",
+    "axios": "^1.2.1",
+    "zod": "^3.20.2"
+  },
+  "devDependencies": {
+    "@tsconfig/node16": "^1.0.3",
+    "nodemon": "^2.0.20",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.4"
+  }
+}
