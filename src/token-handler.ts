@@ -5,7 +5,7 @@ import {isDefined, isUndefined} from "./utils";
 export class TokenHandler{
 
     private readonly _clientId: string
-    private readonly _clientSecret?: string
+    private _clientSecret?: string
 
     private _appAccessToken?: string;
 
@@ -164,13 +164,31 @@ export class TokenHandler{
             return;
         }
 
-        
+        //If refresh interval was already running, restart interval
         const tokenWasSet = isDefined(this._refreshToken);
         
         this._refreshToken = token;
         
         if(tokenWasSet){
             this.refreshUserAccessToken();    
+        }
+    }
+
+    set clientSecret(secret: string | undefined){
+
+        if(!isUndefined(secret)){
+            this.stopAppTokenRefresh()
+            this._clientSecret = undefined;
+            return;
+        }
+
+        //If refresh interval was already running, restart interval
+        const secretWasSet = isDefined(this._clientSecret);
+
+        this._clientSecret = secret;
+
+        if(secretWasSet){
+            this.refreshAppAccessToken();
         }
     }
 
