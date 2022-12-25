@@ -1,12 +1,11 @@
 import axios from "axios";
 import {z as zod} from "zod";
-import {writeFileSync} from "fs";
-import { isUndefined } from "./utils";
+import {isDefined, isUndefined} from "./utils";
 
 export class TokenHandler{
 
     private readonly _clientId: string
-    private readonly _clientSecret: string
+    private readonly _clientSecret?: string
 
     private _appAccessToken?: string;
 
@@ -16,47 +15,118 @@ export class TokenHandler{
     private _refreshTokenInterval?: NodeJS.Timer;
     private _appAccessTokenInterval?: NodeJS.Timer;
 
-    private readonly _writeOut?: {path: string, userToken?: boolean, appToken?: boolean, refreshToken?: boolean};
+    private readonly _initialUserAccessTokenRefresh: boolean;
+    private readonly _initialAppAccessTokenRefresh: boolean;
 
-    constructor(config: {clientId: string, clientSecret: string, refreshToken?: string, writeOut?: {path: string, userToken?: boolean, appToken?: boolean, refreshToken?: boolean}}){
-        config = constructorValidator.parse(config)
+    /**
+     * Tokenhandler that makes token management easy
+     * @param clientId The client identifier of the application that should be used for interaction with the Twitch API
+     * @param [tokens] Possible tokens at initialization
+     * @param [tokens.userAccessToken] An already existing User Access Token
+     * @param [tokens.appAccessToken] An already existing App Access Token
+     * @param [tokens.refreshToken] A refresh token for auto User Access Token renewal/refresh
+     * @param [options] Additional options
+     * @param [options.clientSecret] The applications secrets for auto App Access Token renewal/refresh
+     * @param [options.refreshAppAccessToken] A Boolean that determines whether the App Access Token should be refreshed automatically
+     * @param [options.clientSecret] A Boolean that determines whether the User Access Token should be refreshed automatically
+     */
+    constructor(clientId: string, tokens?: {userAccessToken?: string, appAccessToken?: string, refreshToken?: string}, options?: {clientSecret?: string, refreshAppAccessToken?: boolean, refreshUserAccessToken?: boolean}){
+        this._clientId = zod.string().min(10).parse(clientId)
 
-        this._clientId = config.clientId
-        this._clientSecret = config.clientSecret
-        this._refreshToken = config.refreshToken
+        if(isUndefined(tokens?.appAccessToken, options?.clientSecret, tokens?.userAccessToken, tokens?.refreshToken)){
+            console.error("You did not provide any token or the client secret! You wont be able to make any API calls except those that require a JWT (see Extensions calls)");
+        }else{
+            if(isUndefined(tokens?.appAccessToken, options?.clientSecret))
+                console.info("No App Access Token  or client secret provided. You will not be able to make API calls that only accept App Access Tokens!");
 
-        if(!isUndefined(config.writeOut))
-            this._writeOut = config.writeOut
-        
+            if(isUndefined(tokens?.userAccessToken, tokens?.refreshToken))
+                console.info("No User Access Token or Refresh Token provided. You will not be able to make API calls that only accept User Access Tokens!");
+        }
+
+
+
+        this._clientSecret = options?.clientSecret;
+
+        this._userAccessToken = tokens?.userAccessToken;
+        this._appAccessToken = tokens?.appAccessToken;
+
+        this._initialUserAccessTokenRefresh = isDefined(tokens?.refreshToken) && (isDefined(options?.refreshUserAccessToken) && options!.refreshUserAccessToken!)
+        this._initialAppAccessTokenRefresh = isDefined(options?.clientSecret) && (isDefined(options?.refreshAppAccessToken) && options!.refreshAppAccessToken!)
     }
 
-
+    /**
+     * Initializes the handler with the provided information inside the constructor
+     */
     public async init(){
-        await this.refreshAppAccessToken();
-        await this.refreshUserAccessToken();
+
+        if(this._initialAppAccessTokenRefresh)
+            await this.refreshAppAccessToken();
+
+        if(this._initialUserAccessTokenRefresh)
+            await this.refreshUserAccessToken();
     }
-    // #region API
+
+    //#region API
+
+    /**
+     * Stops the User Access Token refresh interval, if it is running
+     */
     public stopUserTokenRefresh(){
-        clearInterval(this._refreshTokenInterval);
-    }
-
-    public async startUserTokenRefresh(){
-        if(!isUndefined(this._refreshTokenInterval))
+        if(isDefined(this._refreshTokenInterval))
             clearInterval(this._refreshTokenInterval)
-        
-        await this.refreshUserAccessToken();
     }
 
+    /**
+     * Starts the User Access Token refresh interval or restarts it, if it is already running
+     */
+    public async startUserTokenRefresh(){
+        if(isDefined(this._refreshTokenInterval))
+            clearInterval(this._refreshTokenInterval)
+
+        if(isDefined(this._refreshToken)){
+            await this.refreshUserAccessToken();
+        }else{
+            console.error("Failed to start User Access Token refresh interval due to missing refresh token!")
+        }
+
+    }
+
+    /**
+     * Stops the App Access Token refresh interval, if it is running
+     */
     public stopAppTokenRefresh(){
-        clearInterval(this._appAccessTokenInterval);
+        if(isDefined(this._appAccessTokenInterval))
+            clearInterval(this._appAccessTokenInterval)
     }
 
+    /**
+     * Starts the App Access Token refresh interval or restarts it, if it is already running
+     */
     public async startAppTokenRefresh(){
-        if(!isUndefined(this._appAccessTokenInterval))
+        if(isDefined(this._appAccessTokenInterval))
             clearInterval(this._appAccessTokenInterval)
-        
-        await this.refreshAppAccessToken();
+
+        if(isDefined(this._clientSecret)){
+            await this.refreshAppAccessToken();
+        }else{
+            console.error("Failed to start App Access Token refresh interval due to missing client secret!")
+        }
     }
+
+    /**
+     * Renews/refreshes the User Access Token once (with the initial/current internal client secret)
+     */
+    public async renewAppAccessToken(){
+        await this.refreshAppAccessToken(true);
+    }
+
+    /**
+     * Renews/refreshes the User Access Token once (with the initial/current internal token information)
+     */
+    public async renewUserAccessToken(){
+        await this.refreshUserAccessToken(true);
+    }
+
 
     get appAccessToken(): string | undefined{
         return this._appAccessToken;
@@ -71,11 +141,15 @@ export class TokenHandler{
     }
 
     get clientSecret(): string{
-        return this._clientSecret;
+        return <string>this._clientSecret;
     }
 
     get refreshToken(): string | undefined{
         return this._refreshToken;
+    }
+
+    set appAccessToken(token: string | undefined){
+        this._appAccessToken = token;
     }
 
     set userToken(token: string){
@@ -85,26 +159,35 @@ export class TokenHandler{
     set refreshToken(token: string | undefined){
 
         if(!isUndefined(token)){
-            if(!isUndefined(this._refreshTokenInterval))
-                clearInterval(this._refreshTokenInterval)
+            this.stopUserTokenRefresh()
             this._refreshToken = undefined;
             return;
         }
 
         
-        const tokenWasSet = isUndefined(this._refreshToken);
+        const tokenWasSet = isDefined(this._refreshToken);
         
         this._refreshToken = token;
         
-        if(!tokenWasSet){
+        if(tokenWasSet){
             this.refreshUserAccessToken();    
         }
     }
-    // #endregion
 
+    //endregion
 
-    private async refreshAppAccessToken(){
+    /**
+     * Refreshes the App Access Token once or starts the refresh interval after the first renewal/refresh
+     * @param refreshOnce A boolean that determines whether the App Access token should only be renewed/refreshed once
+     * @private
+     */
+    private async refreshAppAccessToken(refreshOnce?: boolean){
         try{
+            if(isUndefined(this._clientSecret)){
+                console.error("Unable to start App Access token refresh interval due to missing client secret!")
+                return;
+            }
+
             const response = await axios.post("https://id.twitch.tv/oauth2/token",{
                 client_id: this._clientId,
                 client_secret: this._clientSecret,
@@ -112,10 +195,9 @@ export class TokenHandler{
             })
 
             this._appAccessToken = response.data.access_token;
-            console.log(`New app access token: ${this.appAccessToken}`)
 
-            this.writeOutFile();
-
+            if(isDefined(refreshOnce))
+                return;
 
             if(this._appAccessTokenInterval)
                 clearInterval(this._appAccessTokenInterval);
@@ -126,9 +208,15 @@ export class TokenHandler{
         }
     }
 
-    private async refreshUserAccessToken(){
+    /**
+     * Refreshes the User Access Token once or starts the refresh interval after the first renewal/refresh
+     * @param refreshOnce A boolean that determines whether the User Access token should only be renewed/refreshed once
+     * @private
+     */
+    private async refreshUserAccessToken(refreshOnce?: boolean){
         try{
             if(isUndefined(this._refreshToken)){
+                console.error("Unable to start User Access token refresh interval due to missing refresh token!")
                 return;
             }
 
@@ -141,9 +229,11 @@ export class TokenHandler{
 
             this._userAccessToken = response.data.access_token;
 
-            this.writeOutFile();
+            if(isDefined(refreshOnce))
+                return;
 
             const expiresIn = response.data.expires_in * 1000;
+
 
             if(this._refreshTokenInterval)
                 clearInterval(this._refreshTokenInterval);
@@ -154,35 +244,7 @@ export class TokenHandler{
         }
     }
 
-    private writeOutFile(){
-        if(this._writeOut != null){
-            const writeOutTokens: {appAccessToken?: string, userAccessToken?: string, refreshToken?: string} = {}
-            if(this._writeOut.appToken === true)
-                writeOutTokens.appAccessToken = this._appAccessToken;
-
-            if(this._writeOut.userToken === true)
-                writeOutTokens.userAccessToken = this._appAccessToken; 
-
-            if(this._writeOut.refreshToken === true)
-                writeOutTokens.refreshToken = this._appAccessToken; 
-            
-                writeFileSync(this._writeOut.path, JSON.stringify(writeOutTokens, null, 4));
-        }
-    }
 }
-
-const constructorValidator = zod.object({
-    //Length of 20 is the lowest ive found
-    clientId: zod.string().min(20),
-    clientSecret: zod.string().min(20),
-    refreshToken: zod.string().min(20).optional(),
-    writeOut: zod.object({
-        path: zod.string().min(2),
-        userToken: zod.boolean().optional(),
-        appToken: zod.boolean().optional(),
-        refreshToken: zod.boolean().optional()
-    }).optional()
-})
 
 
 

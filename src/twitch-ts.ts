@@ -7,8 +7,8 @@ export class TwitchAPI {
     public _tokenHandler: TokenHandler;
 
 
-    constructor(config: { clientId: string, clientSecret: string, refreshToken?: string, writeOut?: { path: string, userToken?: boolean, appToken?: boolean, refreshToken?: boolean } }) {
-        this._tokenHandler = new TokenHandler(config)
+    constructor(config: { clientId: string, clientSecret?: string, tokens?:{ refreshToken?: string, userToken?: string, appToken?: string }, options?: {refreshUserToken?: boolean, refreshAppToken?: boolean}}) {
+        this._tokenHandler = new TokenHandler(config.clientId, {userAccessToken: config.tokens?.userToken, refreshToken: config.tokens?.refreshToken, appAccessToken: config.tokens?.appToken}, {clientSecret: config.clientSecret, refreshAppAccessToken: config.options?.refreshAppToken, refreshUserAccessToken: config.options?.refreshUserToken})
     }
 
     public async init() {

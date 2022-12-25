@@ -1,13 +1,14 @@
 {
   "name": "twitch-api-typescript",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Fully typed TwitchAPI wrapper that makes working with TwitchAPI as easy as possible",
   "main": "build/index.js",
   "homepage": "https://github.com/francois-egner/TwitchTS",
   "types": "build/index.d.ts",
   "scripts": {
-    "dev": "npx nodemon src/index.ts",
-    "prepublish": "tsc"
+    "dev": "npx nodemon src/Testground.ts",
+    "prepublish": "rm -R build/* && tsc",
+    "npmpublish": "npm run prepublish && npm publish"
   },
   "repository": {
     "type": "git",
