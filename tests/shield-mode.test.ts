@@ -1,6 +1,5 @@
 import { expect } from 'chai';
 import {TwitchAPI} from "../src";
-import {Exception} from "../src/exceptions";
 
 export const sharedData ={
     broadcasterId: process.env.broadcasterId!,
@@ -12,10 +11,11 @@ export const sharedData ={
 }
 
 
-export const apiClient = new TwitchAPI({clientId: sharedData.clientId, clientSecret: sharedData.clientSecret, tokens: {userToken: sharedData.userToken}, options:{refreshAppToken: true}})
+export let apiClient: TwitchAPI;
 
 describe("Shield Mode", ()=>{
     before(async ()=>{
+        apiClient = new TwitchAPI({clientId: sharedData.clientId, clientSecret: sharedData.clientSecret, tokens: {userToken: sharedData.userToken}, options:{refreshAppToken: true}});
         await apiClient.init();
     })
 
