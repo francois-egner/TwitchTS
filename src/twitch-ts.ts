@@ -1,6 +1,7 @@
 import { TokenHandler } from "./token-handler";
 import axios from "axios";
 import {isDefined, isUndefined} from "./utils";
+import {Exception} from "./exceptions";
 
 export class TwitchAPI {
 
@@ -3131,6 +3132,7 @@ export class TwitchAPI {
         })
     }
 
+    //BUG: The TwitchAPI does not return the documented properties. Therefore only the is_active field will be returned.
     //Reference: https://dev.twitch.tv/docs/api/reference#update-shield-mode-status
     /**
      * Activates or deactivates the broadcaster’s Shield Mode.
@@ -3140,25 +3142,24 @@ export class TwitchAPI {
      * @param broadcasterId The ID of the broadcaster whose Shield Mode you want to activate or deactivate.
      * @param moderatorId The ID of the broadcaster or a user that is one of the broadcaster’s moderators.
      * @param isActive A Boolean value that determines whether to activate Shield Mode. Set to true to activate Shield Mode; otherwise, false to deactivate Shield Mode.
-     * @return The new shield mode status.
+     * @return A Boolean that determines whether the shield mode is active or inactive after the call.
      */
-    public async updateShieldModeStatus(broadcasterId: string, moderatorId: string, isActive: boolean):Promise<ShieldModeStatus>{
-        const response = await axios.put(`https://api.twitch.tv/helix/moderation/shield_mode?broadcaster_id${broadcasterId}&moderator_id${moderatorId}`, {
-            is_active: isActive
-        },{
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+    public async updateShieldModeStatus(broadcasterId: string, moderatorId: string, isActive: boolean):Promise<boolean>{
+        try{
+            const response = await axios.put(`https://api.twitch.tv/helix/moderation/shield_mode?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {
+                is_active: isActive
+            },{
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
 
-        return {
-            isActive: response.data.data[0].is_active,
-            moderatorId: response.data.data[0].moderator_id,
-            moderatorLogin: response.data.data[0].moderator_login,
-            moderatorDisplayName: response.data.data[0].moderator_name,
-            lastActivatedAt: new Date(response.data.data[0].last_activated_at)
+            return response.data.data[0].is_active;
+        }catch (err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
     }
 
 
@@ -3170,23 +3171,28 @@ export class TwitchAPI {
      * @NOTE The moderatorId must match the user ID in the access token.
      * @param broadcasterId The ID of the broadcaster whose Shield Mode activation status you want to get.
      * @param moderatorId The ID of the broadcaster or a user that is one of the broadcaster’s moderators
-     * @param The broadcaster’s Shield Mode status.
+     * @return The broadcaster’s Shield Mode status if active. If it's not active, null will be returned!
      */
     public async getShieldModeStatus(broadcasterId: string, moderatorId: string): Promise<ShieldModeStatus>{
-        const response = await axios.get(`https://api.twitch.tv/helix/moderation/shield_mode?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            const response = await axios.get(`https://api.twitch.tv/helix/moderation/shield_mode?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
 
-        return {
-            isActive: response.data.data[0].is_active,
-            moderatorId: response.data.data[0].moderator_id,
-            moderatorLogin: response.data.data[0].moderator_login,
-            moderatorDisplayName: response.data.data[0].moderator_name,
-            lastActivatedAt: new Date(response.data.data[0].last_activated_at)
+            return {
+                isActive: response.data.data[0].is_active,
+                moderatorId: response.data.data[0].moderator_id,
+                moderatorLogin: response.data.data[0].moderator_login,
+                moderatorDisplayName: response.data.data[0].moderator_name,
+                lastActivatedAt: new Date(response.data.data[0].last_activated_at)
+            }
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
     }
 
 
@@ -5345,7 +5351,7 @@ export const LANGUAGES = {
     GERMAN: "de"
 } as const;
 
-type ObjectValues<T> = T[keyof T];
+export type ObjectValues<T> = T[keyof T];
 export type Languages = ObjectValues<typeof LANGUAGES>;
 
 export type Tier = {
