@@ -2684,10 +2684,10 @@ export class TwitchAPI {
             if(isDefined(options?.max) && count + pageSize > options!.max!)
                 pageSize = options!.max! - count;
 
-            URL = `${URL}first=${pageSize}`
+            URL = `${URL}&first=${pageSize}`
 
             if (isDefined(cursor))
-                URL = `${URL}after=${cursor}`
+                URL = `${URL}&after=${cursor}`
 
             const response = await axios.get(URL, {
                 headers: {
@@ -3042,55 +3042,61 @@ export class TwitchAPI {
      * @param [options.max] Maximum amount of vips to be returned. If no one was found, null will be returned
      */
     public async getVIPs(broadcasterId: string, options?: {userIds?: string[], cursor?: string, max?: number}): Promise<{vips: User[], cursor: string | null} | null>{
-        const vips: User[] = [];
+        try{
+            const vips: User[] = [];
 
-        let URL = `https://api.twitch.tv/helix/moderation/blocked_terms?$broadcaster_id=${broadcasterId}`
+            let URL = `https://api.twitch.tv/helix/channels/vips?broadcaster_id=${broadcasterId}`
 
-        if(isDefined(options?.userIds))
-            URL = `${URL}&user_id=${options!.userIds!.join("&user_id=")}`
+            if(isDefined(options?.userIds))
+                URL = `${URL}&user_id=${options!.userIds!.join("&user_id=")}`
 
-        let cursor = options?.cursor
-        let count = 0;
-        let pageSize = 100
-        while(true){
+            let cursor = options?.cursor
+            let count = 0;
+            let pageSize = 100
+            while(true){
 
-            if(isDefined(options?.max) && count + pageSize > options!.max!)
-                pageSize = options!.max! - count;
+                if(isDefined(options?.max) && count + pageSize > options!.max!)
+                    pageSize = options!.max! - count;
 
-            URL = `${URL}&first=${pageSize}`
+                URL = `${URL}&first=${pageSize}`
 
-            if (isDefined(cursor))
-                URL = `${URL}&after=${cursor}`
+                if (isDefined(cursor))
+                    URL = `${URL}&after=${cursor}`
 
-            const response = await axios.get(URL, {
-                headers: {
-                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                    "Client-Id": this._tokenHandler.clientId
-                }
-            })
-
-            cursor = response.data.pagination.cursor;
-
-            for (const vip of response.data.data){
-                vips.push({
-                    id: vip.user_id,
-                    login: vip.user_login,
-                    displayName: vip.user_name
+                const response = await axios.get(URL, {
+                    headers: {
+                        "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                        "Client-Id": this._tokenHandler.clientId
+                    }
                 })
-                count++;
+
+                cursor = response.data.pagination.cursor;
+
+                for (const vip of response.data.data){
+                    vips.push({
+                        id: vip.user_id,
+                        login: vip.user_login,
+                        displayName: vip.user_name
+                    })
+                    count++;
 
 
-                if(isDefined(options?.max) && count === options!.max){
-                    if(isDefined(cursor))
-                        return {vips, cursor: cursor!};
+                    if(isDefined(options?.max) && count === options!.max){
+                        if(isDefined(cursor))
+                            return {vips, cursor: cursor!};
+                        return vips.length === 0 ? null : {vips, cursor: null}
+                    }
+                }
+
+                if(isUndefined(cursor)){
                     return vips.length === 0 ? null : {vips, cursor: null}
                 }
             }
-
-            if(isUndefined(cursor)){
-                return vips.length === 0 ? null : {vips, cursor: null}
-            }
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
+
     }
 
 
@@ -3104,14 +3110,20 @@ export class TwitchAPI {
      * @param userId The ID of the user to give VIP status to.
      */
     public async addChannelVIP(broadcasterId: string, userId: string): Promise<void>{
-        await axios.post(`https://api.twitch.tv/helix/channels/vips?broadcaster_id${broadcasterId}&user_id${userId}`, {}, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            await axios.post(`https://api.twitch.tv/helix/channels/vips?broadcaster_id=${broadcasterId}&user_id=${userId}`, {}, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
 
     }
+
 
     //Reference: https://dev.twitch.tv/docs/api/reference#remove-channel-vip
     /**
@@ -3124,12 +3136,18 @@ export class TwitchAPI {
      * @param userId The ID of the user to remove VIP status from.
      */
     public async removeChannelVIP(broadcasterId: string, userId: string): Promise<void>{
-        await axios.delete(`https://api.twitch.tv/helix/channels/vips?broadcaster_id${broadcasterId}&user_id${userId}`, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+
+        try{
+            await axios.delete(`https://api.twitch.tv/helix/channels/vips?broadcaster_id=${broadcasterId}&user_id=${userId}`, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
     }
 
     //BUG: The TwitchAPI does not return the documented properties. Therefore only the is_active field will be returned.
