@@ -46,6 +46,7 @@ export class TokenHandler{
 
 
         this._clientSecret = options?.clientSecret;
+        this._refreshToken = tokens?.refreshToken;
 
         this._userAccessToken = tokens?.userAccessToken;
         this._appAccessToken = tokens?.appAccessToken;
