@@ -1,5 +1,6 @@
-import { expect } from 'chai';
 import {TwitchAPI} from "../src";
+import {Exception, EXCEPTION_REASONS} from "../src/exceptions";
+import {expect} from "chai";
 
 export const sharedData ={
     broadcasterId: process.env.broadcasterId!,
@@ -19,7 +20,14 @@ describe("Ads", ()=>{
         await apiClient.init();
     })
 
-    it("Start Commercial", async(done)=>{
-        done(new Error("Not implemented yet"));
+    it("Start Commercial", async()=>{
+        try{
+            await apiClient.startCommercial(sharedData.broadcasterId, 1000)
+        }catch(err: any){
+            if(process.env.streamoffline !== "True" && !err.message.includes("live"))
+                throw err;
+
+        }
+
     })
 })

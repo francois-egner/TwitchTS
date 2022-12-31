@@ -27,22 +27,27 @@ export class TwitchAPI {
      * @returns An array that contains a single object with the status of your start commercial request.
      */
     public async startCommercial(broadcasterId: string, length: number): Promise<startCommercialResult> {
-        const response = await axios.post("https://api.twitch.tv/helix/channels/commercial", {
-            "broadcaster_id": broadcasterId,
-            "length": length
-        }, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId,
-                "Content-Type": "application/json"
-            }
-        })
+        try{
+            const response = await axios.post("https://api.twitch.tv/helix/channels/commercial", {
+                "broadcaster_id": broadcasterId,
+                "length": length
+            }, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId,
+                    "Content-Type": "application/json"
+                }
+            })
 
-        return {
-            commercialLength: response.data.data.length,
-            twitchMessage: response.data.data.message,
-            nextCommercialIn: response.data.data.retry_after
-        } as startCommercialResult;
+            return {
+                commercialLength: response.data.data.length,
+                twitchMessage: response.data.data.message,
+                nextCommercialIn: response.data.data.retry_after
+            }
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
 
     }
 

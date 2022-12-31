@@ -19,7 +19,8 @@ export class Exception extends Error{
 
 export const EXCEPTION_REASONS = {
     UNAUTHORIZED: "Unauthorized",
-    INVALID_PARAMETERS: "Invalid Parameters"
+    INVALID_PARAMETERS: "Invalid Parameters",
+    STREAM_OFFLINE: "Stream Offline"
 
 } as const;
 export type ExceptionReason = ObjectValues<typeof EXCEPTION_REASONS>;
