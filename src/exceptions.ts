@@ -19,6 +19,7 @@ export class Exception extends Error{
 
 export const EXCEPTION_REASONS = {
     UNAUTHORIZED: "Unauthorized",
+    INVALID_PARAMETERS: "Invalid Parameters"
 
 } as const;
 export type ExceptionReason = ObjectValues<typeof EXCEPTION_REASONS>;

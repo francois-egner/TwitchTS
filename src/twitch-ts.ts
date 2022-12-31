@@ -1,7 +1,7 @@
 import { TokenHandler } from "./token-handler";
 import axios from "axios";
 import {isDefined, isUndefined} from "./utils";
-import {Exception} from "./exceptions";
+import {Exception, EXCEPTION_REASONS} from "./exceptions";
 
 export class TwitchAPI {
 
@@ -2537,22 +2537,28 @@ export class TwitchAPI {
      * @Tokentype user
      * @Scope moderation:read
      * @param broadcasterId The ID of the broadcaster whose AutoMod settings and list of blocked terms are used to check the message.
+     * @param messages
      * @return The list of checking results.
      */
     public async checkAutoModStatus(broadcasterId: string, messages: MessageCheck[]): Promise<MessageCheckResult[] | null>{
-        const response = await axios.post(`https://api.twitch.tv/helix/moderation/enforcements/status?broadcaster_id=${broadcasterId}`, messages,{
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            const response = await axios.post(`https://api.twitch.tv/helix/moderation/enforcements/status?broadcaster_id=${broadcasterId}`, messages,{
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
 
-        return response.data.data.map((value: any): MessageCheckResult=>{
-            return {
-                checkId: value.msg_id,
-                isPermitted: value.is_permitted
-            }
-        })
+            return response.data.data.map((value: any): MessageCheckResult=>{
+                return {
+                    checkId: value.msg_id,
+                    isPermitted: value.is_permitted
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
     }
 
 
@@ -2566,16 +2572,21 @@ export class TwitchAPI {
      * @param action The action to take for the message.
      */
     public async manageHeldAutoModMessages(moderatorId: string, messageId: string, action: MessageModerationAction): Promise<void>{
-        await axios.post(`https://api.twitch.tv/helix/moderation/automod/message`, {
-            user_id: moderatorId,
-            msg_id: messageId,
-            action
-        }, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            await axios.post(`https://api.twitch.tv/helix/moderation/automod/message`, {
+                user_id: moderatorId,
+                msg_id: messageId,
+                action
+            }, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
     }
 
 
@@ -2588,29 +2599,32 @@ export class TwitchAPI {
      * @param moderatorId The ID of the broadcaster or a user that has permission to moderate the broadcaster’s chat room.
      * @return List of AutoMod settings. If none is configured, null will be returned
      */
-    public async getAutoModSettings(broadcasterId: string, moderatorId: String): Promise<AutoModSettings[] | null>{
-        const response = await axios.get(`https://api.twitch.tv/helix/moderation/automod/settings?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+    public async getAutoModSettings(broadcasterId: string, moderatorId: String): Promise<AutoModSettings | null>{
+        try{
+            const response = await axios.get(`https://api.twitch.tv/helix/moderation/automod/settings?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
 
-        return response.data.data.map((setting: any) : AutoModSettings=>{
-            return {
-                broadcasterId: setting.broadcaster_id,
-                moderatorId: setting.moderator_id,
-                overallLevel: setting.overall_level,
-                disability: setting.disability,
-                aggression: setting.aggression,
-                sexualitySexOrGender: setting.sexuality_sex_or_gender,
-                misogyny: setting.misogyny,
-                bullying: setting.bullying,
-                swearing: setting.swearing,
-                raceEthnicityOrReligion: setting.race_ethnicity_or_religion,
-                sexBasedTerms: setting.sex_based_terms
+            return response.data.data.length === 0 ? null : {
+                broadcasterId: response.data.data[0].broadcaster_id,
+                moderatorId: response.data.data[0].moderator_id,
+                overallLevel: response.data.data[0].overall_level,
+                disability: response.data.data[0].disability,
+                aggression: response.data.data[0].aggression,
+                sexualitySexOrGender: response.data.data[0].sexuality_sex_or_gender,
+                misogyny: response.data.data[0].misogyny,
+                bullying: response.data.data[0].bullying,
+                swearing: response.data.data[0].swearing,
+                raceEthnicityOrReligion: response.data.data[0].race_ethnicity_or_religion,
+                sexBasedTerms: response.data.data[0].sex_based_terms
             }
-        })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
     }
 
 
@@ -2634,27 +2648,47 @@ export class TwitchAPI {
      * @param newSettings.swearing The Automod level for profanity.
      * @return Newly created settings
      */
-    public async updateAutoModSettings(broadcasterId: string, moderatorId: string, newSettings: {aggression: number, bullying: number, disability: number, misogyny: number, overallLevel: number, raceEthnicityOrReligion: number, sexBasedTerms: number, sexualitySexOrGender: number, swearing: number}): Promise<AutoModSettings>{
-        const response = await axios.post(`https://api.twitch.tv/helix/moderation/automod/settings?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, newSettings, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+    public async updateAutoModSettings(broadcasterId: string, moderatorId: string, newSettings: {aggression?:number, bullying?: number, disability?: number, misogyny?: number, overallLevel?: number, raceEthnicityOrReligion?: number, sexBasedTerms?: number, sexualitySexOrGender?: number, swearing?: number}): Promise<AutoModSettings>{
+        try{
 
-        return {
-            broadcasterId: response.data.data[0].broadcaster_id,
-            moderatorId: response.data.data[0].moderator_id,
-            overallLevel: response.data.data[0].overall_level,
-            disability: response.data.data[0].disability,
-            aggression: response.data.data[0].aggression,
-            sexualitySexOrGender: response.data.data[0].sexuality_sex_or_gender,
-            misogyny: response.data.data[0].misogyny,
-            bullying: response.data.data[0].bullying,
-            swearing: response.data.data[0].swearing,
-            raceEthnicityOrReligion: response.data.data[0].race_ethnicity_or_religion,
-            sexBasedTerms: response.data.data[0].sex_based_terms
+            if(isDefined(newSettings.overallLevel) && (isDefined(newSettings.aggression) || isDefined(newSettings.bullying) || isDefined(newSettings.disability) || isDefined(newSettings.misogyny) || isDefined(newSettings.raceEthnicityOrReligion) || isDefined(newSettings.sexBasedTerms) || isDefined(newSettings.sexualitySexOrGender) || isDefined(newSettings.swearing)))
+                throw new Exception(EXCEPTION_REASONS.INVALID_PARAMETERS, "You may not specifiy an overall level AND a specific one. These are exclusive choices!")
+
+            const changeObject = isDefined(newSettings.overallLevel) ? {overall_level: newSettings.overallLevel} : {
+                aggression: newSettings.aggression ?? 0,
+                bullying: newSettings.bullying ?? 0,
+                disability: newSettings.disability ?? 0,
+                misogyny: newSettings.misogyny ?? 0,
+                race_ethnicity_or_religion: newSettings.raceEthnicityOrReligion ?? 0,
+                sex_based_terms: newSettings.sexBasedTerms ?? 0,
+                sexuality_sex_or_gender: newSettings.sexualitySexOrGender ?? 0,
+                swearing: newSettings.swearing ?? 0
+            }
+
+            const response = await axios.put(`https://api.twitch.tv/helix/moderation/automod/settings?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, changeObject, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+
+            return {
+                broadcasterId: response.data.data[0].broadcaster_id,
+                moderatorId: response.data.data[0].moderator_id,
+                overallLevel: response.data.data[0].overall_level,
+                disability: response.data.data[0].disability,
+                aggression: response.data.data[0].aggression,
+                sexualitySexOrGender: response.data.data[0].sexuality_sex_or_gender,
+                misogyny: response.data.data[0].misogyny,
+                bullying: response.data.data[0].bullying,
+                swearing: response.data.data[0].swearing,
+                raceEthnicityOrReligion: response.data.data[0].race_ethnicity_or_religion,
+                sexBasedTerms: response.data.data[0].sex_based_terms
+            }
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
     }
 
 
@@ -2668,65 +2702,70 @@ export class TwitchAPI {
      * @return List of banned users and cursor for later usage if not all banned users are returned
      */
     public async getBannedUsers(broadcasterId: string, options?: {userIds?: string[], max?: number, cursor?: string}): Promise<{ bannedUsers: BannedUser[], cursor: string | null } | null>{
-        const bannedUsers: BannedUser[] = [];
+        try{
+            const bannedUsers: BannedUser[] = [];
 
-        let URL = `https://api.twitch.tv/helix/moderation/banned?broadcaster_id=${broadcasterId}`
+            let URL = `https://api.twitch.tv/helix/moderation/banned?broadcaster_id=${broadcasterId}`
 
-        if(isDefined(options?.userIds)){
+            if(isDefined(options?.userIds)){
                 URL = URL + `&user_id=${options!.userIds!.join("&user_id=")}`
+            }
+
+            let cursor = options?.cursor
+            let count = 0;
+            let pageSize = 100
+            while(true){
+
+                if(isDefined(options?.max) && count + pageSize > options!.max!)
+                    pageSize = options!.max! - count;
+
+                URL = `${URL}&first=${pageSize}`
+
+                if (isDefined(cursor))
+                    URL = `${URL}&after=${cursor}`
+
+                const response = await axios.get(URL, {
+                    headers: {
+                        "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                        "Client-Id": this._tokenHandler.clientId
+                    }
+                })
+
+                cursor = response.data.pagination.cursor;
+
+                for (const ban of response.data.data){
+                    bannedUsers.push({
+                        userId: ban.user_id,
+                        userLogin: ban.user_login,
+                        userDisplayName: ban.user_name,
+                        expiresAt: ban.expires_at == "" ? null : new Date(ban.expires_at),
+                        createdAt: new Date(ban.created_at),
+                        reason: ban.reason,
+                        moderatorId: ban.moderator_id,
+                        moderatorLogin: ban.moderator_login,
+                        moderatorDisplayName: ban.moderator_name
+
+                    })
+                    count++;
+
+
+                    if(isDefined(options?.max) && count === options!.max){
+                        if(isDefined(cursor))
+                            return {bannedUsers, cursor: cursor!};
+                        return bannedUsers.length === 0 ? null : {bannedUsers, cursor: null}
+                    }
+                }
+
+                if(isUndefined(cursor)){
+                    break;
+                }
+            }
+
+            return bannedUsers.length === 0 ? null : {bannedUsers, cursor: null}
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
 
-        let cursor = options?.cursor
-        let count = 0;
-        let pageSize = 100
-        while(true){
-
-            if(isDefined(options?.max) && count + pageSize > options!.max!)
-                pageSize = options!.max! - count;
-
-            URL = `${URL}&first=${pageSize}`
-
-            if (isDefined(cursor))
-                URL = `${URL}&after=${cursor}`
-
-            const response = await axios.get(URL, {
-                headers: {
-                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                    "Client-Id": this._tokenHandler.clientId
-                }
-            })
-
-            cursor = response.data.pagination.cursor;
-
-            for (const ban of response.data.data){
-                bannedUsers.push({
-                    userId: ban.user_id,
-                    userLogin: ban.user_login,
-                    userDisplayName: ban.user_name,
-                    expiresAt: ban.expires_at == "" ? null : new Date(ban.expires_at),
-                    createdAt: new Date(ban.created_at),
-                    reason: ban.reason,
-                    moderatorId: ban.moderator_id,
-                    moderatorLogin: ban.moderator_login,
-                    moderatorDisplayName: ban.moderator_name
-
-                })
-                count++;
-
-
-                if(isDefined(options?.max) && count === options!.max){
-                    if(isDefined(cursor))
-                        return {bannedUsers, cursor: cursor!};
-                    return bannedUsers.length === 0 ? null : {bannedUsers, cursor: null}
-                }
-            }
-
-            if(isUndefined(cursor)){
-                break;
-            }
-    }
-
-        return bannedUsers.length === 0 ? null : {bannedUsers, cursor: null}
 
     }
 
@@ -2744,30 +2783,35 @@ export class TwitchAPI {
      * @param options.reason The reason the you’re banning the user or putting them in a timeout.
      */
     public async banUser(broadcasterId: string, moderatorId: string, userId: string, options?: {duration?: number, reason?: string}): Promise<BanResult>{
-        const banObject = {
-            user_id: userId
-        }
-        if(!isUndefined(options)){
-            if(options!.duration)
-                Object.defineProperty(banObject, "duration", {value: options!.duration, enumerable: true})
-            if(options!.reason)
-                Object.defineProperty(banObject, "reason", {value: options!.reason, enumerable: true})
-        }
-
-        const response = await axios.post(`https://api.twitch.tv/helix/moderation/bans?broadcaster_id${broadcasterId}&moderator_id${moderatorId}`, banObject, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.appAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
+        try{
+            const banObject = {
+                user_id: userId
             }
-        })
+            if(!isUndefined(options)){
+                if(options!.duration)
+                    Object.defineProperty(banObject, "duration", {value: options!.duration, enumerable: true})
+                if(options!.reason)
+                    Object.defineProperty(banObject, "reason", {value: options!.reason, enumerable: true})
+            }
 
-        return {
-            broadcasterId: response.data.data[0].broadcaster_id,
-            moderatorId: response.data.data[0].moderator_id,
-            userId: response.data.data[0].user_id,
-            createdAt: new Date(response.data.data[0].created_at),
-            endTime: new Date(response.data.data[0].end_time)
+            const response = await axios.post(`https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {data: banObject}, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+
+            return {
+                broadcasterId: response.data.data[0].broadcaster_id,
+                moderatorId: response.data.data[0].moderator_id,
+                userId: response.data.data[0].user_id,
+                createdAt: new Date(response.data.data[0].created_at),
+                endTime: new Date(response.data.data[0].end_time)
+            }
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
     }
 
 
@@ -2781,12 +2825,17 @@ export class TwitchAPI {
      * @param userId The ID of the user to remove the ban or timeout from.
      */
     public async unbanUser(broadcasterId: string, moderatorId: string, userId: string){
-        await axios.post(`https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}&user_id=${userId}`, {}, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.appAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            await axios.delete(`https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}&user_id=${userId}`, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch (err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
     }
 
     //Reference: https://dev.twitch.tv/docs/api/reference#get-blocked-terms
@@ -2803,56 +2852,61 @@ export class TwitchAPI {
      * @return List of blocked terms. If no one was found, null will be returned
      */
     public async getBlockedTerms(broadcasterId: string, moderatorId: string, options?: {cursor?: string, max?: number}): Promise<{terms: BlockedTerm[], cursor: string | null} | null>{
-        const blockedTerms: BlockedTerm[] = [];
+        try{
+            const blockedTerms: BlockedTerm[] = [];
 
-        let URL = `https://api.twitch.tv/helix/moderation/blocked_terms?$broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`
+            let URL = `https://api.twitch.tv/helix/moderation/blocked_terms?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`
 
-        let cursor = options?.cursor
-        let count = 0;
-        let pageSize = 100
-        while(true){
+            let cursor = options?.cursor
+            let count = 0;
+            let pageSize = 100
+            while(true){
 
-            if(isDefined(options?.max) && count + pageSize > options!.max!)
-                pageSize = options!.max! - count;
+                if(isDefined(options?.max) && count + pageSize > options!.max!)
+                    pageSize = options!.max! - count;
 
-            URL = `${URL}&first=${pageSize}`
+                URL = `${URL}&first=${pageSize}`
 
-            if (isDefined(cursor))
-                URL = `${URL}&after=${cursor}`
+                if (isDefined(cursor))
+                    URL = `${URL}&after=${cursor}`
 
-            const response = await axios.get(URL, {
-                headers: {
-                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                    "Client-Id": this._tokenHandler.clientId
-                }
-            })
-
-            cursor = response.data.pagination.cursor;
-
-            for (const term of response.data.data){
-                blockedTerms.push({
-                    broadcasterId: term.broadcaster_id,
-                    moderatorId: term.moderator_id,
-                    id: term.id,
-                    text: term.text,
-                    createdAt: new Date(term.created_at),
-                    updatedAt: new Date(term.updated_at),
-                    expiresAt: new Date(term.expires_at)
+                const response = await axios.get(URL, {
+                    headers: {
+                        "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                        "Client-Id": this._tokenHandler.clientId
+                    }
                 })
-                count++;
+
+                cursor = response.data.pagination.cursor;
+
+                for (const term of response.data.data){
+                    blockedTerms.push({
+                        broadcasterId: term.broadcaster_id,
+                        moderatorId: term.moderator_id,
+                        id: term.id,
+                        text: term.text,
+                        createdAt: new Date(term.created_at),
+                        updatedAt: new Date(term.updated_at),
+                        expiresAt: new Date(term.expires_at)
+                    })
+                    count++;
 
 
-                if(isDefined(options?.max) && count === options!.max){
-                    if(isDefined(cursor))
-                        return {terms: blockedTerms, cursor: cursor!};
+                    if(isDefined(options?.max) && count === options!.max){
+                        if(isDefined(cursor))
+                            return {terms: blockedTerms, cursor: cursor!};
+                        return blockedTerms.length === 0 ? null : {terms: blockedTerms, cursor: null}
+                    }
+                }
+
+                if(isUndefined(cursor)){
                     return blockedTerms.length === 0 ? null : {terms: blockedTerms, cursor: null}
                 }
             }
-
-            if(isUndefined(cursor)){
-                return blockedTerms.length === 0 ? null : {terms: blockedTerms, cursor: null}
-            }
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
     }
 
 
@@ -2867,21 +2921,26 @@ export class TwitchAPI {
      * @return Summary object of added term
      */
     public async addBlockedTerm(broadcasterId: string, moderatorId: string, text: string): Promise<BlockedTerm>{
-        const response = await axios.post(`https://api.twitch.tv/helix/moderation/blocked_terms?broadcaster_id${broadcasterId}&moderator_id${moderatorId}`, {text}, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
+        try{
+            const response = await axios.post(`https://api.twitch.tv/helix/moderation/blocked_terms?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`, {text}, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+            return {
+                broadcasterId: response.data.data[0].broadcaster_id,
+                moderatorId: response.data.data[0].moderator_id,
+                id: response.data.data[0].id,
+                text: response.data.data[0].text,
+                createdAt: new Date(response.data.data[0].created_at),
+                updatedAt: new Date(response.data.data[0].updated_at),
+                expiresAt: new Date(response.data.data[0].expires_at)
             }
-        })
-        return {
-            broadcasterId: response.data.data[0].broadcaster_id,
-            moderatorId: response.data.data[0].moderator_id,
-            id: response.data.data[0].id,
-            text: response.data.data[0].text,
-            createdAt: new Date(response.data.data[0].created_at),
-            updatedAt: new Date(response.data.data[0].updated_at),
-            expiresAt: new Date(response.data.data[0].expires_at)
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
+
     }
 
 
@@ -2895,13 +2954,18 @@ export class TwitchAPI {
      * @param termId The ID of the blocked term to remove from the broadcaster’s list of blocked terms.
      */
     public async removeBlockedTerm(broadcasterId: string, moderatorId: string, termId: string): Promise<void> {
-        await axios.delete(`https://api.twitch.tv/helix/moderation/blocked_terms?broadcaster_id${broadcasterId}&moderator_id${moderatorId}&id=${termId}`, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            await axios.delete(`https://api.twitch.tv/helix/moderation/blocked_terms?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}&id=${termId}`, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
     }
+
 
     //Reference: https://dev.twitch.tv/docs/api/reference#delete-chat-messages
     /**
@@ -2915,78 +2979,86 @@ export class TwitchAPI {
      * @param options.messageId The ID of the message to remove. If not specified, all messages in the chatroom will be removed!
      */
     public async deleteChatMessages(broadcasterId: string, moderatorId: string, options?: {messageId?: string}): Promise<void>{
-        let URL = `https://api.twitch.tv/helix/moderation/chat?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`
+        try{
+            let URL = `https://api.twitch.tv/helix/moderation/chat?broadcaster_id=${broadcasterId}&moderator_id=${moderatorId}`
 
-        if(!isUndefined(options) && !isUndefined(options!.messageId))
-            URL = `${URL}&message_id=${options!.messageId!}`
+            if(isDefined(options?.messageId))
+                URL = `${URL}&message_id=${options!.messageId!}`
 
-        await axios.delete(URL, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
-
-    }
-
-
-
-    //Reference: https://dev.twitch.tv/docs/api/reference#get-moderators
-    public async getModerators(broadcasterId: string, options?: {userIds?: string[], max?: number, cursor?: string}): Promise<{ moderators: User[], cursor: string | null } | null>{
-        const moderators: User[] = [];
-
-        let URL = `https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}`
-
-        if(isDefined(options?.userIds)){
-            URL = URL + `&user_id=${options!.userIds!.join("&user_id=")}`
-        }
-
-        let cursor = options?.cursor
-        let count = 0;
-        let pageSize = 100
-        while(true){
-
-            if(isDefined(options?.max) && count + pageSize > options!.max!)
-                pageSize = options!.max! - count;
-
-            URL = `${URL}first=${pageSize}`
-
-            if (isDefined(cursor))
-                URL = `${URL}after=${cursor}`
-
-            const response = await axios.get(URL, {
+            await axios.delete(URL, {
                 headers: {
                     "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
                     "Client-Id": this._tokenHandler.clientId
                 }
             })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+   }
 
-            cursor = response.data.pagination.cursor;
 
-            for (const ban of response.data.data){
-                moderators.push({
-                    id: ban.user_id,
-                    login: ban.user_login,
-                    displayName: ban.user_name
+
+    //Reference: https://dev.twitch.tv/docs/api/reference#get-moderators
+    public async getModerators(broadcasterId: string, options?: {userIds?: string[], max?: number, cursor?: string}): Promise<{ moderators: User[], cursor: string | null } | null>{
+        try{
+            const moderators: User[] = [];
+
+            let URL = `https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}`
+
+            if(isDefined(options?.userIds)){
+                URL = URL + `&user_id=${options!.userIds!.join("&user_id=")}`
+            }
+
+            let cursor = options?.cursor
+            let count = 0;
+            let pageSize = 100
+            while(true){
+
+                if(isDefined(options?.max) && count + pageSize > options!.max!)
+                    pageSize = options!.max! - count;
+
+                URL = `${URL}&first=${pageSize}`
+
+                if (isDefined(cursor))
+                    URL = `${URL}&after=${cursor}`
+
+                const response = await axios.get(URL, {
+                    headers: {
+                        "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                        "Client-Id": this._tokenHandler.clientId
+                    }
                 })
-                count++;
+
+                cursor = response.data.pagination.cursor;
+
+                for (const ban of response.data.data){
+                    moderators.push({
+                        id: ban.user_id,
+                        login: ban.user_login,
+                        displayName: ban.user_name
+                    })
+                    count++;
 
 
-                if(isDefined(options?.max) && count === options!.max){
-                    if(moderators.length === 0)
+                    if(isDefined(options?.max) && count === options!.max){
+                        if(moderators.length === 0)
 
-                    if(isDefined(cursor))
-                        return {moderators, cursor: cursor!};
-                    return moderators.length === 0 ? null : {moderators, cursor: null}
+                            if(isDefined(cursor))
+                                return {moderators, cursor: cursor!};
+                        return moderators.length === 0 ? null : {moderators, cursor: null}
+                    }
+                }
+
+                if(isUndefined(cursor)){
+                    break;
                 }
             }
 
-            if(isUndefined(cursor)){
-                break;
-            }
+            return moderators.length === 0 ? null : {moderators, cursor: null}
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
 
-        return moderators.length === 0 ? null : {moderators, cursor: null}
     }
 
     //Reference: https://dev.twitch.tv/docs/api/reference#add-channel-moderator
@@ -2999,12 +3071,17 @@ export class TwitchAPI {
      * @param userId The ID of the user to add as a moderator in the broadcaster’s chat room.
      */
     public async addChannelModerator(broadcasterId: string, userId: string): Promise<void>{
-        await axios.post(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id${broadcasterId}&user_id${userId}`, {}, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try{
+            await axios.post(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}&user_id=${userId}`, {}, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
+
 
     }
 
@@ -3019,13 +3096,16 @@ export class TwitchAPI {
      * @param userId The ID of the user to remove as a moderator from the broadcaster’s chat room.
      */
     public async removeChannelModerator(broadcasterId: string, userId: string): Promise<void>{
-        await axios.delete(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id${broadcasterId}&user_id${userId}`, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
-
+        try{
+            await axios.delete(`https://api.twitch.tv/helix/moderation/moderators?broadcaster_id=${broadcasterId}&user_id=${userId}`, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message)
+        }
     }
 
 
