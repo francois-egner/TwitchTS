@@ -153,7 +153,7 @@ export class TokenHandler{
         this._appAccessToken = token;
     }
 
-    set userToken(token: string){
+    set userAccessToken(token: string | undefined){
         this._userAccessToken = token;
     }
 
