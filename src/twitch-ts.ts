@@ -650,6 +650,7 @@ export class TwitchAPI {
      * @Tokentype user
      * @Scope channel:read:redemptions
      * @param broadcasterId The ID of the broadcaster whose custom rewards you want to get.
+     * @param options Optional Parameter containing reward-IDs
      * @param ids A list/array of IDs to filter the rewards by.
      * @returns A list of custom rewards. The list is in ascending order by rewardId.
      */
@@ -1172,7 +1173,7 @@ export class TwitchAPI {
     /**
      * Gets emotes for one or more specified emote sets.
      * @Tokentype user, app
-     * @param setId IDs that identify the emote sets to get.
+     * @param setIds IDs that identify the emote sets to get.
      */
     public async getEmoteSets(setIds: string[]) {
         const emoteSets: EmoteSet[] = []
@@ -1933,6 +1934,7 @@ export class TwitchAPI {
      * Gets information about an extension.
      * @Tokentype JWT (see Reference for more information!)
      * @param extensionId The ID of the extension to get.
+     * @param jwt signed JSON Web Token
      * @param options The version of the extension to get.
      */
     public async getExtensions(extensionId: string, jwt: string, options: {extensionVersion: string}):Promise<Extension | null>{
@@ -4743,43 +4745,45 @@ export class TwitchAPI {
      * @param options.userLogins The login names of the users to get.
      */
     public async getUsers(options?: {userIds?: string[], userLogins?: string[]}): Promise<User[]>{
-        const users: User[] = [];
+        try {
+            const users: User[] = [];
 
-        let URL = `https://api.twitch.tv/helix/users?`
-        if(!isUndefined(options)){
-            let userIdParameter = isUndefined(options) ? "" : !isUndefined(options!.userIds) ? `user_id=${options!.userIds!.join("&user_id=")}` : ""
-            let userLoginParameter = isUndefined(options) ? "" : !isUndefined(options!.userLogins) ? `login=${options!.userLogins!.join("&login=")}` : ""
+            let URL = `https://api.twitch.tv/helix/users?`
+            if (!isUndefined(options)) {
+                let userIdParameter = isUndefined(options) ? "" : !isUndefined(options!.userIds) ? `user_id=${options!.userIds!.join("&user_id=")}` : ""
+                let userLoginParameter = isUndefined(options) ? "" : !isUndefined(options!.userLogins) ? `login=${options!.userLogins!.join("&login=")}` : ""
 
-            const parameters = `${userIdParameter}${isUndefined(options!.userIds) ? "" : "&"}${userLoginParameter}`
-            URL = `${URL}${parameters}`
-        }
-
-        const response = await axios.get(URL, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken ?? this._tokenHandler.appAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
+                const parameters = `${userIdParameter}${isUndefined(options!.userIds) ? "" : "&"}${userLoginParameter}`
+                URL = `${URL}${parameters}`
             }
-        })
 
-        for(const user of response.data.data){
-            users.push({
-                id: user.id,
-                login: user.login,
-                displayName: user.display_name,
-                type: user.type,
-                broadcasterType: user.broadcaster_type,
-                description: user.description,
-                profileImageURL: user.profile_image_url,
-                offlineImageURL: user.offline_image_url,
-                viewCount: user.view_count,
-                email: user.email,
-                createdAt: new Date(user.created_at)
+            const response = await axios.get(URL, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken ?? this._tokenHandler.appAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
             })
+
+            for (const user of response.data.data) {
+                users.push({
+                    id: user.id,
+                    login: user.login,
+                    displayName: user.display_name,
+                    type: user.type,
+                    broadcasterType: user.broadcaster_type,
+                    description: user.description,
+                    profileImageURL: user.profile_image_url,
+                    offlineImageURL: user.offline_image_url,
+                    viewCount: user.view_count,
+                    email: user.email,
+                    createdAt: new Date(user.created_at)
+                })
+            }
+            return users;
+        } catch (err: any) {
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
-
-        return users;
     }
-
 
     //Reference: https://dev.twitch.tv/docs/api/reference#update-user
     /**

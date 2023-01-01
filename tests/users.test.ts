@@ -7,7 +7,11 @@ export const sharedData ={
     clientId: process.env.clientId!,
     clientSecret: process.env.clientSecret!,
     userToken: process.env.userToken!,
-    differentUserID: process.env.differntUserId!
+    differentUser:{
+        id: process.env.differentUserId!,
+        login: process.env.differentUserLogin!,
+        displayName: process.env.differentUserDisplayName!
+    }
 }
 
 
@@ -19,8 +23,11 @@ describe("Users", ()=>{
         await apiClient.init();
     })
 
-    it("Get Users", async(done)=>{
-        done(new Error("Not implemented yet"));
+    it("Get Users", async()=>{
+        const users=await apiClient.getUsers();
+        expect(users[0].id).to.be.an("String")
+        expect(users[0].id).to.equal(sharedData.broadcasterId);
+        console.log(users);
     })
 
     it("Update User", async(done)=>{

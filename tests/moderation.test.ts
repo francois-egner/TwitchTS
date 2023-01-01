@@ -94,8 +94,8 @@ describe("Moderation", ()=>{
         })
 
         it("Get Banned Users", async()=>{
-            const usersData = await apiClient.getBannedUsers(sharedData.broadcasterId)
-            expect(usersData?.bannedUsers).to.be.an("array")
+            const usersData = await apiClient.getBannedUsers(sharedData.broadcasterId);
+            expect(usersData?.bannedUsers).to.be.an("array");
             expect(usersData?.cursor).to.equal(null);
         })
 
