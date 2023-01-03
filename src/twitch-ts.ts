@@ -4795,25 +4795,29 @@ export class TwitchAPI {
      * @return The single user that you updated
      */
     public async updateUser(newDescription?: string):Promise<User>{
-        const response = await axios.put(`https://api.twitch.tv/helix/users?description=${isDefined(newDescription) ? newDescription : ""}`,{}, {
-            headers: {
-                "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
-                "Client-Id": this._tokenHandler.clientId
-            }
-        })
+        try {
+            const response = await axios.put(`https://api.twitch.tv/helix/users?description=${isDefined(newDescription) ? newDescription : ""}`,{}, {
+                headers: {
+                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken}`,
+                    "Client-Id": this._tokenHandler.clientId
+                }
+            })
 
-        return {
-            id: response.data.data[0].id,
-            login: response.data.data[0].login,
-            displayName: response.data.data[0].display_name,
-            type: response.data.data[0].type,
-            broadcasterType: response.data.data[0].broadcaster_type,
-            description: response.data.data[0].description,
-            profileImageURL: response.data.data[0].profile_image_url,
-            offlineImageURL: response.data.data[0].offline_image_url,
-            viewCount: response.data.data[0].view_count,
-            email: response.data.data[0].email,
-            createdAt: new Date(response.data.data[0].created_at)
+            return {
+                id: response.data.data[0].id,
+                login: response.data.data[0].login,
+                displayName: response.data.data[0].display_name,
+                type: response.data.data[0].type,
+                broadcasterType: response.data.data[0].broadcaster_type,
+                description: response.data.data[0].description,
+                profileImageURL: response.data.data[0].profile_image_url,
+                offlineImageURL: response.data.data[0].offline_image_url,
+                viewCount: response.data.data[0].view_count,
+                email: response.data.data[0].email,
+                createdAt: new Date(response.data.data[0].created_at)
+            }
+        } catch (err: any) {
+            throw new Exception(err.response.data.error, err.response.data.message)
         }
     }
 
@@ -4977,58 +4981,62 @@ export class TwitchAPI {
      * @return List of blocked users. If no one was found, null will be returned.
      */
     public async getUserBlockList(broadcasterId: string, options?: {cursor?: string, max?: number}): Promise<null | {blockedUsers: {id: string, login: string, displayName: string}[], cursor: string | null}>{
-        const blockedUsers: {id: string, login: string, displayName: string}[] = [];
+        try{
+            const blockedUsers: {id: string, login: string, displayName: string}[] = [];
 
-        let URL = `https://api.twitch.tv/helix/users/blocks?broadcaster_id=${broadcasterId}`
+            let URL = `https://api.twitch.tv/helix/users/blocks?broadcaster_id=${broadcasterId}`
 
-        let cursor = options?.cursor
-        let count = 0;
-        let pageSize = 100
-        let total = 0;
+            let cursor = options?.cursor
+            let count = 0;
+            let pageSize = 100
+            let total = 0;
 
-        while(true){
+            while(true){
 
-            if(isDefined(options?.max) && count + pageSize > options!.max!)
-                pageSize = options!.max! - count;
+                if(isDefined(options?.max) && count + pageSize > options!.max!)
+                    pageSize = options!.max! - count;
 
-            URL = `${URL}first=${pageSize}`
+                URL = `${URL}first=${pageSize}`
 
-            if (isDefined(cursor))
-                URL = `${URL}after=${cursor}`
+                if (isDefined(cursor))
+                    URL = `${URL}after=${cursor}`
 
-            const response = await axios.get(URL.replace("?&", "?"), {
-                headers: {
-                    "Authorization": `Bearer ${this._tokenHandler.userAccessToken ?? this._tokenHandler.appAccessToken}`,
-                    "Client-Id": this._tokenHandler.clientId
-                }
-            })
-
-            total = response.data.total;
-
-            cursor = response.data.pagination.cursor;
-
-            for (const user of response.data.data){
-                blockedUsers.push({
-                    id: user.user_id,
-                    login: user.user_login,
-                    displayName: user.display_name
+                const response = await axios.get(URL.replace("?&", "?"), {
+                    headers: {
+                        "Authorization": `Bearer ${this._tokenHandler.userAccessToken ?? this._tokenHandler.appAccessToken}`,
+                        "Client-Id": this._tokenHandler.clientId
+                    }
                 })
-                count++;
+
+                total = response.data.total;
+
+                cursor = response.data.pagination.cursor;
+
+                for (const user of response.data.data){
+                    blockedUsers.push({
+                        id: user.user_id,
+                        login: user.user_login,
+                        displayName: user.display_name
+                    });
+                    count++;
 
 
-                if(isDefined(options?.max) && count === options!.max){
-                    if(isDefined(cursor))
-                        return {blockedUsers, cursor: cursor!};
-                    return blockedUsers.length === 0 ? null : {blockedUsers, cursor: null}
+                    if(isDefined(options?.max) && count === options!.max){
+                        if(isDefined(cursor))
+                            return {blockedUsers, cursor: cursor!};
+                        return blockedUsers.length === 0 ? null : {blockedUsers, cursor: null};
+                    }
+                }
+
+                if(isUndefined(cursor)){
+                    break;
                 }
             }
 
-            if(isUndefined(cursor)){
-                break;
-            }
+            return blockedUsers.length === 0 ? null : {blockedUsers, cursor: null};
+        }catch(err: any){
+            throw new Exception(err.response.data.error, err.response.data.message);
         }
-
-        return blockedUsers.length === 0 ? null : {blockedUsers, cursor: null}
     }
 
 
