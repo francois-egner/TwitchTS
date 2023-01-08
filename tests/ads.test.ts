@@ -1,6 +1,4 @@
 import {TwitchAPI} from "../src";
-import {Exception, EXCEPTION_REASONS} from "../src/exceptions";
-import {expect} from "chai";
 
 export const sharedData ={
     broadcasterId: process.env.broadcasterId!,
@@ -21,13 +19,7 @@ describe("Ads", ()=>{
     })
 
     it("Start Commercial", async()=>{
-        try{
+        if(process.env.streamoffline !== "True")
             await apiClient.startCommercial(sharedData.broadcasterId, 1000)
-        }catch(err: any){
-            if(process.env.streamoffline !== "True" && !err.message.includes("live"))
-                throw err;
-
-        }
-
     })
 })

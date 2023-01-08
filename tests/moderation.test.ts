@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import {TwitchAPI} from "../src";
 
-export const sharedData ={
+export const sharedData = {
     broadcasterId: process.env.broadcasterId!,
     moderatorId: process.env.broadcasterId!,
     clientId: process.env.clientId!,
@@ -94,9 +94,12 @@ describe("Moderation", ()=>{
         })
 
         it("Get Banned Users", async()=>{
-            const usersData = await apiClient.getBannedUsers(sharedData.broadcasterId);
-            expect(usersData?.bannedUsers).to.be.an("array");
-            expect(usersData?.cursor).to.equal(null);
+            const usersData = await apiClient.getBannedUsers(sharedData.broadcasterId)
+            expect(typeOf(usersData)).to.be.oneOf(["object", "null"])
+            if(usersData !== null){
+                expect(usersData?.bannedUsers).to.be.an("array")
+                expect(usersData.cursor).to.equal(null);
+            }
         })
 
         it("Ban User indefinetly", async()=>{

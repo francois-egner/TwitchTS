@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import {TwitchAPI} from "../src";
 
-export const sharedData ={
+export const sharedData = {
     broadcasterId: process.env.broadcasterId!,
     moderatorId: process.env.broadcasterId!,
     clientId: process.env.clientId!,
@@ -13,6 +13,11 @@ export const sharedData ={
         displayName: process.env.differentUserDisplayName!
     }
 }
+
+//Testing framework: mocha mit chai(Erweiterung) -> Google: expect chai .....
+//Ablauf jeder Test
+//1. Den Code innerhalb der Methode in einen try-catch-Block packen <- siehe bei Methide "getUsers"
+//2. Bei URL-Zusammenstellung bei z.B. user_id, broadcaster_id, user, id schauen, ob dort auch ein = folgt
 
 
 export let apiClient: TwitchAPI;
