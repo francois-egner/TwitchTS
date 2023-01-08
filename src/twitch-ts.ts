@@ -4996,10 +4996,10 @@ export class TwitchAPI {
                 if(isDefined(options?.max) && count + pageSize > options!.max!)
                     pageSize = options!.max! - count;
 
-                URL = `${URL}first=${pageSize}`
+                URL = `${URL}&first=${pageSize}`
 
                 if (isDefined(cursor))
-                    URL = `${URL}after=${cursor}`
+                    URL = `${URL}&after=${cursor}`
 
                 const response = await axios.get(URL.replace("?&", "?"), {
                     headers: {

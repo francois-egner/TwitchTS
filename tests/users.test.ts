@@ -44,13 +44,16 @@ describe("Users", ()=>{
             console.log(updatedUser);
         })
 
-    it("Get User Block List",
-        async (done)=>{
-            //const response = await apiClient.getUserBlockList();
-            //expect(response.blockedUsers[0].id).to.be.an("String");
-            //expect(response.cursor).to.equal(null);
-            //console.log(response);
-            done(new Error("Not implemented yet"));
+        it("Get User Block List",
+        async ()=>{
+            const response = await apiClient.getUserBlockList(sharedData.broadcasterId);
+
+            expect(typeOf(response)).to.be.oneOf(["object", "null"]);
+
+            if(response !== null){
+                expect(response.blockedUsers[0].id).to.be.an("String");
+                expect(response.cursor).to.equal(null);
+            }
         })
 
     it("Block User", async(done)=>{
@@ -67,3 +70,7 @@ describe("Users", ()=>{
         done(new Error("Not implemented yet"));
     })
 })
+
+function typeOf(value: any){
+    return value === null ? "null" : typeof value
+}
